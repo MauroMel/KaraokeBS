@@ -13,8 +13,7 @@ const QueuePage: React.FC = () => {
   const [requests, setRequests] = useState<SongRequest[]>([]);
   const [eventData, setEventData] = useState<KaraokeEvent | null>(null);
   const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
+useEffect(() => {
   if (!eventCode) {
     setLoading(false);
     return;
@@ -60,6 +59,7 @@ const QueuePage: React.FC = () => {
     if (unsubscribeRequests) unsubscribeRequests();
   };
 }, [eventCode]);
+
 
 
     fetchEvent();
