@@ -13,56 +13,52 @@ const QueuePage: React.FC = () => {
   const [requests, setRequests] = useState<SongRequest[]>([]);
   const [eventData, setEventData] = useState<KaraokeEvent | null>(null);
   const [loading, setLoading] = useState(true);
-useEffect(() => {
-  if (!eventCode) {
-    setLoading(false);
-    return;
-  }
 
-  let unsubscribeRequests: (() => void) | null = null;
+  useEffect(() => {
+    if (!eventCode) {
+      setLoading(false);
+      return;
+    }
 
-  const fetchEvent = async () => {
-    try {
-      const q = query(
-        collection(db, 'events'),
-        where('eventCode', '==', eventCode),
-        where('isActive', '==', true)
-      );
+    let unsubscribeRequests: (() => void) | null = null;
 
-      const querySnapshot = await getDocs(q);
-
-      if (!querySnapshot.empty) {
-        const ev = { id: querySnapshot.docs[0].id, ...querySnapshot.docs[0].data() } as KaraokeEvent;
-        setEventData(ev);
-
-        const requestsQuery = query(
-          collection(db, `events/${ev.id}/requests`),
-          orderBy('createdAt', 'asc')
+    const fetchEvent = async () => {
+      try {
+        const q = query(
+          collection(db, 'events'),
+          where('eventCode', '==', eventCode),
+          where('isActive', '==', true)
         );
 
-        unsubscribeRequests = onSnapshot(requestsQuery, (snapshot) => {
-          setRequests(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as SongRequest)));
+        const querySnapshot = await getDocs(q);
+
+        if (!querySnapshot.empty) {
+          const ev = { id: querySnapshot.docs[0].id, ...querySnapshot.docs[0].data() } as KaraokeEvent;
+          setEventData(ev);
+
+          const requestsQuery = query(
+            collection(db, `events/${ev.id}/requests`),
+            orderBy('createdAt', 'asc')
+          );
+
+          unsubscribeRequests = onSnapshot(requestsQuery, (snapshot) => {
+            setRequests(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as SongRequest)));
+            setLoading(false);
+          });
+        } else {
           setLoading(false);
-        });
-      } else {
+        }
+      } catch (e) {
+        console.error(e);
         setLoading(false);
       }
-    } catch (e) {
-      console.error(e);
-      setLoading(false);
-    }
-  };
-
-  fetchEvent();
-
-  return () => {
-    if (unsubscribeRequests) unsubscribeRequests();
-  };
-}, [eventCode]);
-
-
+    };
 
     fetchEvent();
+
+    return () => {
+      if (unsubscribeRequests) unsubscribeRequests();
+    };
   }, [eventCode]);
 
 const submitUrl = `https://mauromel.github.io/KaraokeBS/#/submit?eventCode=${eventCode}`;
