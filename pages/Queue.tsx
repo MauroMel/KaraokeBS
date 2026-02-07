@@ -65,7 +65,7 @@ const QueuePage: React.FC = () => {
     fetchEvent();
   }, [eventCode]);
 
-const submitUrl = `https://mauromel.github.io/KaraokeB&S/#/submit?eventCode=${eventCode}`;
+const submitUrl = `https://mauromel.github.io/KaraokeBS/#/submit?eventCode=${eventCode}`;
 
 
   if (loading) return (
