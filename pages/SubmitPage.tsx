@@ -157,7 +157,7 @@ const SubmitPage: React.FC = () => {
           >
             {submitting ? 'Invio in corso...' : (
               <>
-                Sali in Scaletta <CheckCircle className="w-5 h-5" />
+                Invia la canzone <CheckCircle className="w-5 h-5" />
               </>
             )}
           </button>
