@@ -6,6 +6,17 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>KaraokeBS</title>
     <script src="https://cdn.tailwindcss.com"></script>
+	<script>
+  // Recupera il path da ?/ e lo rimette come path reale
+  (function () {
+    var l = window.location;
+    if (l.search.startsWith('?/')) {
+      var newPath = l.search.slice(2); // toglie "?/"
+      var newUrl = l.origin + l.pathname.replace(/\/$/, '') + '/' + newPath + l.hash;
+      window.history.replaceState(null, '', newUrl);
+    }
+  })();
+</script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap" rel="stylesheet">
     <style>
       body {
