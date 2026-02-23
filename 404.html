@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>KaraokeBS</title>
+    <script>
+      // SPA GitHub Pages redirect (BrowserRouter)
+      // Reindirizza /KaraokeBS/qualcosa -> /KaraokeBS/?/qualcosa
+      var segmentCount = 1; // 1 perché il repo è /KaraokeBS
+      var l = window.location;
+      var path = l.pathname.split('/').slice(0, 1 + segmentCount).join('/') + '/';
+      var rest = l.pathname.split('/').slice(1 + segmentCount).join('/');
+      var newUrl = path + '?/' + rest + (l.search ? '&' + l.search.slice(1) : '') + l.hash;
+      l.replace(newUrl);
+    </script>
+  </head>
+  <body></body>
+</html>
