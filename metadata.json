@@ -1,0 +1,5 @@
+{
+  "name": "KaraokeB&S",
+  "description": "A neon-themed professional karaoke management app featuring real-time queues, QR code song submission, and administrative controls.",
+  "requestFramePermissions": []
+}
