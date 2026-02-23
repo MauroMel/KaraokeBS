@@ -3,7 +3,7 @@ import { useSearchParams, useNavigate } from 'react-router-dom';
 import { collection, query, where, getDocs, addDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../firebase';
 import { KaraokeEvent, RequestStatus } from '../types';
-import { Music, User, CheckCircle, ChevronLeft, Lock } from 'lucide-react';
+import { Music, User, CheckCircle, ChevronLeft, Lock, Share2 } from 'lucide-react';
 
 const SubmitPage: React.FC = () => {
   const [searchParams] = useSearchParams();
@@ -17,6 +17,8 @@ const SubmitPage: React.FC = () => {
   const [songTitle, setSongTitle] = useState('');
   const [keyShift, setKeyShift] = useState(0);
   const [submitting, setSubmitting] = useState(false);
+
+  const [inviteBusy, setInviteBusy] = useState(false);
 
   useEffect(() => {
     if (!eventCode) {
@@ -52,6 +54,49 @@ const SubmitPage: React.FC = () => {
     const raw = (eventData as any)?.acceptingRequests;
     return raw === false ? false : true;
   }, [eventData]);
+
+  // ✅ URL invito: funziona sia in locale che su GitHub Pages
+  const inviteUrl = useMemo(() => {
+    const base = import.meta.env.BASE_URL.replace(/\/$/, ''); // es: "/KaraokeBS"
+    const code = encodeURIComponent(eventCode || '');
+    return `${window.location.origin}${base}/submit?eventCode=${code}`;
+  }, [eventCode]);
+
+  const handleInvite = async () => {
+    if (!eventCode) return;
+    setInviteBusy(true);
+
+    const text = `Vieni a prenotare la tua canzone 🎤\nSerata: ${eventData?.name || ''}\n\n${inviteUrl}`;
+
+    try {
+      // Web Share API: top su mobile (WhatsApp spesso compare)
+      if (navigator.share) {
+        await navigator.share({
+          title: 'KaraokeBS',
+          text,
+          url: inviteUrl,
+        });
+        return;
+      }
+
+      // Fallback: copia negli appunti (se disponibile)
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(inviteUrl);
+      }
+
+      // Fallback: apri WhatsApp con testo pronto
+      const wa = `https://wa.me/?text=${encodeURIComponent(text)}`;
+      window.open(wa, '_blank', 'noopener,noreferrer');
+
+      alert('Link copiato! Si apre WhatsApp per condividerlo.');
+    } catch (e) {
+      console.error(e);
+      // ultimo fallback: prompt manuale
+      window.prompt('Copia e invia questo link:', inviteUrl);
+    } finally {
+      setInviteBusy(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -118,10 +163,25 @@ const SubmitPage: React.FC = () => {
         >
           <ChevronLeft className="w-4 h-4" /> Indietro
         </button>
+
         <h2 className="text-4xl font-black italic uppercase text-white tracking-tighter leading-none mb-2">
           Prenota la tua canzone
         </h2>
         <p className="text-cyan-400 font-bold text-xs uppercase tracking-widest">Serata: {eventData.name}</p>
+
+        {/* ✅ Invita amici */}
+        <button
+          type="button"
+          onClick={handleInvite}
+          disabled={inviteBusy}
+          className={`mt-5 w-full border border-cyan-500/30 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-200 font-black uppercase tracking-widest py-3 rounded-2xl transition-all flex items-center justify-center gap-2 ${
+            inviteBusy ? 'opacity-60 cursor-not-allowed' : ''
+          }`}
+          title="Condividi il link della serata"
+        >
+          <Share2 className="w-5 h-5" />
+          {inviteBusy ? 'Preparazione...' : 'Invita gli amici'}
+        </button>
 
         {/* ✅ banner prenotazioni chiuse */}
         {!acceptingRequests && (
