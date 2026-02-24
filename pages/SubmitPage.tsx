@@ -176,7 +176,7 @@ const SubmitPage: React.FC = () => {
               Prenotazioni chiuse
             </div>
             <div className="text-[11px] text-red-200/80 mt-2">
-              La regia ha momentaneamente bloccato le nuove richieste. Riprova tra poco.
+              La regia ha bloccato l'invio di nuove richieste.
             </div>
           </div>
         )}
