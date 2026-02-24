@@ -283,7 +283,7 @@ const SubmitPage: React.FC = () => {
 
       <div className="mt-8 text-center">
         <p className="text-gray-600 text-[10px] uppercase font-bold tracking-widest leading-relaxed">
-          Assicurati che il titolo sia corretto per permettere alla regia di trovare la base velocemente!
+          Assicurati che il titolo sia corretto per permettere a Mauro di trovare la base velocemente!
         </p>
       </div>
     </div>
