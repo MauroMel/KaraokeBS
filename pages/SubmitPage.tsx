@@ -168,7 +168,18 @@ const SubmitPage: React.FC = () => {
           Prenota la tua canzone
         </h2>
         <p className="text-cyan-400 font-bold text-xs uppercase tracking-widest">Serata: {eventData.name}</p>
-
+        {/* ✅ banner prenotazioni chiuse */}
+        {!acceptingRequests && (
+          <div className="mt-5 p-4 rounded-2xl border border-red-500/30 bg-red-500/10 text-red-200">
+            <div className="flex items-center gap-2 font-black uppercase tracking-widest text-xs">
+              <Lock className="w-4 h-4" />
+              Prenotazioni chiuse
+            </div>
+            <div className="text-[11px] text-red-200/80 mt-2">
+              La regia ha momentaneamente bloccato le nuove richieste. Riprova tra poco.
+            </div>
+          </div>
+        )}
         
 
       <div className="bg-neon-gradient border border-gray-800 rounded-[2.5rem] p-8 shadow-2xl neon-border-blue">
@@ -267,18 +278,7 @@ const SubmitPage: React.FC = () => {
           {inviteBusy ? 'Preparazione...' : 'Invita gli amici'}
         </button>
 
-        {/* ✅ banner prenotazioni chiuse */}
-        {!acceptingRequests && (
-          <div className="mt-5 p-4 rounded-2xl border border-red-500/30 bg-red-500/10 text-red-200">
-            <div className="flex items-center gap-2 font-black uppercase tracking-widest text-xs">
-              <Lock className="w-4 h-4" />
-              Prenotazioni chiuse
-            </div>
-            <div className="text-[11px] text-red-200/80 mt-2">
-              La regia ha momentaneamente bloccato le nuove richieste. Riprova tra poco.
-            </div>
-          </div>
-        )}
+
       </div>
 
       <div className="mt-8 text-center">
