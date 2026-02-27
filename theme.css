@@ -149,6 +149,31 @@ body{
   }
 }
 
+@keyframes textPulse {
+  0% {
+    transform: scaleX(1) scaleY(1);
+    filter: drop-shadow(0 0 4px rgba(255, 0, 150, 0.45));
+    opacity: 0.85;
+  }
+  50% {
+    transform: scaleX(1.12) scaleY(1.12);
+    filter: drop-shadow(0 0 18px rgba(255, 0, 150, 0.95));
+    opacity: 1;
+  }
+  100% {
+    transform: scaleX(1) scaleY(1);
+    filter: drop-shadow(0 0 4px rgba(255, 0, 150, 0.45));
+    opacity: 0.85;
+  }
+}
+
 .micPulse {
   animation: micPulse 1.4s ease-in-out infinite;
+}
+
+.songTitlePulse {
+  display: inline-block;
+  animation: textPulse 1.4s ease-in-out infinite;
+  transform-origin: center center;
+  white-space: nowrap;
 }

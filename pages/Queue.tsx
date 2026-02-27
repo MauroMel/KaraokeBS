@@ -187,7 +187,7 @@ const submitUrl = `${window.location.origin}${base}/submit?eventCode=${eventCode
                       </td>
                       <td className="k-td" style={{ fontWeight: 900 }}>{req.nickname}</td>
                       <td className="p-4">
-					<div className="text-xl font-bold text-pink-500 tracking-tight drop-shadow-[0_0_6px_rgba(255,0,150,0.6)]">
+					<div className={`text-xl font-bold text-pink-500 tracking-tight drop-shadow-[0_0_6px_rgba(255,0,150,0.6)] ${req.status === RequestStatus.SUL_PALCO ? 'songTitlePulse' : ''}`}>
 						{req.songTitle}
 						</div>
 						</td>
