@@ -31,6 +31,7 @@ import {
   Unlock,
 } from 'lucide-react';
 import { signOut } from 'firebase/auth';
+import { QRCodeSVG } from 'qrcode.react';
 
 type NewAdminRequest = {
   nickname: string;
@@ -43,7 +44,7 @@ const AdminPage: React.FC = () => {
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
   const [requests, setRequests] = useState<SongRequest[]>([]);
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const [newEvent, setNewEvent] = useState({ name: '', songMinutes: 4.5 });
+  const [newEvent, setNewEvent] = useState({ name: '', songMinutes: 4.5, minTimeBetweenRequests: 30 });
   const [selectedRequests, setSelectedRequests] = useState<Set<string>>(new Set());
 
   const [showAddSongModal, setShowAddSongModal] = useState(false);
@@ -52,6 +53,13 @@ const AdminPage: React.FC = () => {
     songTitle: '',
     keyShift: 0,
   });
+
+  const [showEditWaitTimeModal, setShowEditWaitTimeModal] = useState(false);
+  const [editWaitTimeValue, setEditWaitTimeValue] = useState(30);
+
+  // ✅ Drag and Drop
+  const [draggedId, setDraggedId] = useState<string | null>(null);
+  const [dragOverId, setDragOverId] = useState<string | null>(null);
 
   // Fetch Events
   useEffect(() => {
@@ -69,7 +77,15 @@ const AdminPage: React.FC = () => {
     if (!selectedEventId) return;
     const q = query(collection(db, `events/${selectedEventId}/requests`), orderBy('createdAt', 'asc'));
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      setRequests(snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as SongRequest)));
+      const items = snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as SongRequest));
+      // ✅ Ordina per il campo 'order' se esiste, altrimenti mantieni l'ordine di creazione
+      items.sort((a, b) => {
+        const orderA = (a as any)?.order ?? Infinity;
+        const orderB = (b as any)?.order ?? Infinity;
+        if (orderA === Infinity && orderB === Infinity) return 0; // Entrambi non hanno order, mantieni ordine
+        return orderA - orderB;
+      });
+      setRequests(items);
     });
     return unsubscribe;
   }, [selectedEventId]);
@@ -88,7 +104,7 @@ const AdminPage: React.FC = () => {
       });
 
       setShowCreateModal(false);
-      setNewEvent({ name: '', songMinutes: 4.5 });
+      setNewEvent({ name: '', songMinutes: 4.5, minTimeBetweenRequests: 30 });
       setSelectedEventId(docRef.id);
     } catch (err: any) {
       console.error('ERROR creating event:', err);
@@ -219,6 +235,11 @@ const AdminPage: React.FC = () => {
     }
 
     try {
+      // ✅ Assegna automaticamente il numero d'ordine (in fondo alla lista)
+      const maxOrder = requests.length > 0 
+        ? Math.max(...requests.map((r) => (r as any)?.order ?? -1)) 
+        : -1;
+
       await addDoc(collection(db, `events/${selectedEventId}/requests`), {
         nickname,
         songTitle,
@@ -226,6 +247,7 @@ const AdminPage: React.FC = () => {
         status: RequestStatus.IN_ATTESA,
         createdAt: serverTimestamp(),
         createdBy: 'admin',
+        order: maxOrder + 1, // ✅ Assegna ordine
       });
 
       setShowAddSongModal(false);
@@ -234,6 +256,71 @@ const AdminPage: React.FC = () => {
       console.error(e);
       alert(`Errore inserimento canzone: ${e?.message || e}`);
     }
+  };
+
+  // ✅ Aggiorna tempo di attesa tra richieste
+  const updateWaitTime = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedEventId) return;
+
+    try {
+      await updateDoc(doc(db, 'events', selectedEventId), {
+        minTimeBetweenRequests: editWaitTimeValue,
+      });
+      setShowEditWaitTimeModal(false);
+    } catch (e: any) {
+      console.error(e);
+      alert(`Errore aggiornamento tempo di attesa: ${e?.message || e}`);
+    }
+  };
+
+  // ✅ Drag and Drop: riordina le canzoni
+  const handleDragStart = (id: string) => {
+    setDraggedId(id);
+  };
+
+  const handleDragOver = (e: React.DragEvent, id: string) => {
+    e.preventDefault(); // ✅ NECESSARIO per permettere il drop
+    e.dataTransfer.dropEffect = 'move';
+    setDragOverId(id);
+  };
+
+  const handleDragLeave = () => {
+    setDragOverId(null);
+  };
+
+  const handleDrop = async (e: React.DragEvent, targetId: string) => {
+    e.preventDefault(); // ✅ NECESSARIO per bloccare il default behavior
+    if (!draggedId || draggedId === targetId || !selectedEventId) return;
+
+    const draggedIndex = requests.findIndex((r) => r.id === draggedId);
+    const targetIndex = requests.findIndex((r) => r.id === targetId);
+
+    if (draggedIndex === -1 || targetIndex === -1) return;
+
+    // ✅ Crea nuovo array riordinato
+    const newRequests = [...requests];
+    const [movedItem] = newRequests.splice(draggedIndex, 1);
+    newRequests.splice(targetIndex, 0, movedItem);
+
+    // ✅ Batch update: salva il nuovo ordine su Firebase
+    try {
+      const batch = writeBatch(db);
+      newRequests.forEach((req, idx) => {
+        batch.update(doc(db, `events/${selectedEventId}/requests`, req.id), {
+          order: idx, // Salva la posizione
+        });
+      });
+      await batch.commit();
+      // ✅ Aggiorna lo state DOPO il commit, così Firestore avrà già i nuovi dati
+      setRequests(newRequests);
+    } catch (e: any) {
+      console.error('Errore riordino:', e);
+      alert(`Errore nel riordino: ${e?.message || e}`);
+    }
+
+    setDraggedId(null);
+    setDragOverId(null);
   };
 
   return (
@@ -309,9 +396,9 @@ const AdminPage: React.FC = () => {
           {selectedEvent ? (
             <div className="bg-zinc-900/30 border border-gray-800 rounded-3xl overflow-hidden backdrop-blur-sm">
               <div className="p-6 border-b border-gray-800 flex flex-col gap-4">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                  <div className="flex items-center gap-4">
-                    <div className="p-3 bg-pink-500/10 rounded-2xl">
+                <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-6">
+                  <div className="flex items-start gap-4">
+                    <div className="p-3 bg-pink-500/10 rounded-2xl h-fit">
                       <Users className="text-pink-500 w-6 h-6" />
                     </div>
                     <div>
@@ -322,11 +409,36 @@ const AdminPage: React.FC = () => {
                     </div>
                   </div>
 
+                  {/* QR Code Section */}
+                  <div className="flex flex-col items-center gap-2">
+                    <div className="p-3 bg-white rounded-xl">
+                      <QRCodeSVG
+                        value={`${window.location.origin}${import.meta.env.BASE_URL.replace(/\/$/, '')}/queue?eventCode=${(selectedEvent as any).eventCode}`}
+                        size={120}
+                        level="H"
+                        includeMargin={false}
+                      />
+                    </div>
+                    <span className="text-[10px] text-gray-500 uppercase font-mono tracking-tighter">Serata QR</span>
+                  </div>
+
                   <div className="flex flex-wrap items-center gap-2 justify-end">
                     {/* ✅ Tot prenotazioni */}
                     <div className="px-4 py-2 rounded-xl border border-gray-800 bg-black/30 text-xs font-black uppercase tracking-widest text-gray-300">
                       Prenotazioni: <span className="text-pink-400">{activeRequestsCount}</span>
                     </div>
+
+                    {/* ✅ Minuti tra richieste - CLICCABILE */}
+                    <button
+                      onClick={() => {
+                        setEditWaitTimeValue((selectedEvent as any)?.minTimeBetweenRequests ?? 30);
+                        setShowEditWaitTimeModal(true);
+                      }}
+                      className="px-4 py-2 rounded-xl border border-violet-500/30 bg-violet-500/10 text-violet-300 hover:bg-violet-500/20 text-xs font-black uppercase tracking-widest transition-colors cursor-pointer"
+                      title="Modifica tempo di attesa tra prenotazioni"
+                    >
+                      Attesa: <span className="font-mono">{(selectedEvent as any)?.minTimeBetweenRequests ?? 30}m</span>
+                    </button>
 
                     {/* ✅ Toggle accetta prenotazioni */}
                     <button
@@ -392,7 +504,28 @@ const AdminPage: React.FC = () => {
                   </thead>
                   <tbody className="divide-y divide-gray-800/50">
                     {requests.map((req, idx) => (
-                      <tr key={req.id} className={idx % 2 === 0 ? 'row-odd' : 'row-even'}>
+                      <tr
+                        key={req.id}
+                        draggable
+                        onDragStart={() => handleDragStart(req.id)}
+                        onDragOver={(e) => handleDragOver(e, req.id)}
+                        onDragLeave={handleDragLeave}
+                        onDrop={(e) => handleDrop(e, req.id)}
+                        onDragEnd={() => {
+                          setDraggedId(null);
+                          setDragOverId(null);
+                        }}
+                        className={`cursor-move transition-all ${
+                          draggedId === req.id
+                            ? 'opacity-50 bg-gray-900/50'
+                            : dragOverId === req.id
+                            ? 'bg-pink-500/20 border-l-2 border-pink-500'
+                            : idx % 2 === 0
+                            ? 'row-odd'
+                            : 'row-even'
+                        }`}
+                        title="Trascinare per riordinare"
+                      >
                         <td className="p-4 text-center">
                           <input
                             type="checkbox"
@@ -517,6 +650,21 @@ const AdminPage: React.FC = () => {
                   className="w-full bg-black border border-gray-800 rounded-xl px-4 py-3 focus:border-pink-500 outline-none transition-colors"
                 />
               </div>
+              <div>
+                <label className="block text-xs font-bold text-gray-500 uppercase mb-2 tracking-widest">
+                  Minuti tra prenotazioni (stesso dispositivo)
+                </label>
+                <input
+                  required
+                  type="number"
+                  step="1"
+                  min="0"
+                  value={newEvent.minTimeBetweenRequests}
+                  onChange={(e) => setNewEvent({ ...newEvent, minTimeBetweenRequests: parseInt(e.target.value) })}
+                  className="w-full bg-black border border-gray-800 rounded-xl px-4 py-3 focus:border-pink-500 outline-none transition-colors"
+                />
+                <p className="text-[10px] text-gray-600 mt-1">Se 30, gli utenti devono aspettare 30 minuti tra una prenotazione e l'altra</p>
+              </div>
               <div className="flex gap-3 pt-4">
                 <button
                   type="button"
@@ -600,6 +748,54 @@ const AdminPage: React.FC = () => {
                   className="flex-1 bg-cyan-600 hover:bg-cyan-500 text-white font-bold py-3 rounded-xl uppercase tracking-widest"
                 >
                   Inserisci
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Wait Time Modal */}
+      {showEditWaitTimeModal && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
+          <div className="w-full max-w-md bg-zinc-900 rounded-3xl p-8 border border-violet-500/50 shadow-2xl shadow-violet-500/10 animate-in fade-in zoom-in duration-300">
+            <h3 className="text-2xl font-black italic uppercase text-violet-300 mb-6 tracking-tight">
+              Modifica tempo di attesa
+            </h3>
+
+            <form onSubmit={updateWaitTime} className="space-y-6">
+              <div>
+                <label className="block text-xs font-bold text-gray-500 uppercase mb-3 tracking-widest">
+                  Minuti di attesa tra prenotazioni
+                </label>
+                <input
+                  autoFocus
+                  required
+                  type="number"
+                  step="1"
+                  min="0"
+                  value={editWaitTimeValue}
+                  onChange={(e) => setEditWaitTimeValue(parseInt(e.target.value) || 0)}
+                  className="w-full bg-black border border-gray-800 rounded-xl px-4 py-3 focus:border-violet-500 outline-none transition-colors text-lg font-bold"
+                />
+                <p className="text-[10px] text-gray-600 mt-3">
+                  Imposta a 0 per nessun limite. Gli utenti dovranno aspettare questo tempo tra una prenotazione e l'altra da uno stesso dispositivo.
+                </p>
+              </div>
+
+              <div className="flex gap-3 pt-4">
+                <button
+                  type="button"
+                  onClick={() => setShowEditWaitTimeModal(false)}
+                  className="flex-1 px-4 py-3 text-gray-400 font-bold uppercase text-sm hover:text-white transition-colors"
+                >
+                  Annulla
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 bg-violet-600 hover:bg-violet-500 text-white font-bold py-3 rounded-xl uppercase tracking-widest transition-colors"
+                >
+                  Salva
                 </button>
               </div>
             </form>

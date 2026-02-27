@@ -12,6 +12,7 @@ export interface KaraokeEvent {
   isActive: boolean;
   createdAt: any;
   songMinutes: number;
+  minTimeBetweenRequests?: number;
 }
 
 export interface SongRequest {
@@ -21,4 +22,5 @@ export interface SongRequest {
   keyShift: number;
   status: RequestStatus;
   createdAt: any;
+  deviceId?: string;
 }

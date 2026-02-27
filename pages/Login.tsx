@@ -30,7 +30,7 @@ const LoginPage: React.FC = () => {
     <div className="flex items-center justify-center p-6 mt-12">
       <div className="w-full max-w-md bg-neon-gradient p-8 rounded-3xl border border-gray-800 neon-border-blue">
         <h2 className="text-3xl font-black text-center mb-8 uppercase italic tracking-tight neon-text-blue">
-          Admin Portal
+          Regia Karaoke
         </h2>
         
         <form onSubmit={handleLogin} className="space-y-6">

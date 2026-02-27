@@ -32,18 +32,35 @@ const QueuePage: React.FC = () => {
         const querySnapshot = await getDocs(q);
 
         if (!querySnapshot.empty) {
-          const ev = { id: querySnapshot.docs[0].id, ...querySnapshot.docs[0].data() } as KaraokeEvent;
-          setEventData(ev);
+          const evId = querySnapshot.docs[0].id;
+
+          // subscribe to event document for live updates
+          const unsubscribeEvent = onSnapshot(doc(db, 'events', evId), (d) => {
+            if (d.exists()) {
+              setEventData({ id: d.id, ...d.data() } as KaraokeEvent);
+            }
+          });
 
           const requestsQuery = query(
-            collection(db, `events/${ev.id}/requests`),
+            collection(db, `events/${evId}/requests`),
             orderBy('createdAt', 'asc')
           );
 
           unsubscribeRequests = onSnapshot(requestsQuery, (snapshot) => {
-            setRequests(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as SongRequest)));
+            const items = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as SongRequest));
+            // ✅ Ordina per il campo 'order' se esiste, altrimenti mantieni l'ordine di creazione
+            items.sort((a, b) => {
+              const orderA = (a as any)?.order ?? Infinity;
+              const orderB = (b as any)?.order ?? Infinity;
+              if (orderA === Infinity && orderB === Infinity) return 0;
+              return orderA - orderB;
+            });
+            setRequests(items);
             setLoading(false);
           });
+
+          // store event unsubscriber separately so outer cleanup can call both
+          return unsubscribeEvent;
         } else {
           setLoading(false);
         }
@@ -51,12 +68,18 @@ const QueuePage: React.FC = () => {
         console.error(e);
         setLoading(false);
       }
+      return undefined;
     };
 
-    fetchEvent();
+    let unsubscribeEvent: (() => void) | null = null;
+
+    fetchEvent().then((fn) => {
+      if (fn) unsubscribeEvent = fn;
+    });
 
     return () => {
       if (unsubscribeRequests) unsubscribeRequests();
+      if (unsubscribeEvent) unsubscribeEvent();
     };
   }, [eventCode]);
 

@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
-import { collection, query, where, getDocs, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, query, where, getDocs, addDoc, serverTimestamp, orderBy, limit } from 'firebase/firestore';
 import { db } from '../firebase';
 import { KaraokeEvent, RequestStatus } from '../types';
-import { Music, User, CheckCircle, ChevronLeft, Lock, Share2 } from 'lucide-react';
+import { Music, User, CheckCircle, ChevronLeft, Lock, Share2, Clock } from 'lucide-react';
 
 const SubmitPage: React.FC = () => {
   const [searchParams] = useSearchParams();
@@ -20,11 +20,19 @@ const SubmitPage: React.FC = () => {
 
   const [inviteBusy, setInviteBusy] = useState(false);
 
+  // ✅ Rate limiting
+  const [deviceId, setDeviceId] = useState<string>('');
+  const [lastSubmitTime, setLastSubmitTime] = useState<number | null>(null);
+  const [rateLimitError, setRateLimitError] = useState<string>('');
+  const [tick, setTick] = useState(0); // ✅ Force re-render ogni secondo
+
   useEffect(() => {
     if (!eventCode) {
       setLoading(false);
       return;
     }
+
+    let unsubscribeRequests: (() => void) | null = null;
 
     const fetchEvent = async () => {
       try {
@@ -37,7 +45,11 @@ const SubmitPage: React.FC = () => {
         const querySnapshot = await getDocs(q);
 
         if (!querySnapshot.empty) {
-          setEventData({ id: querySnapshot.docs[0].id, ...querySnapshot.docs[0].data() } as KaraokeEvent);
+          const ev = { id: querySnapshot.docs[0].id, ...querySnapshot.docs[0].data() } as KaraokeEvent;
+          setEventData(ev);
+
+          // ✅ Controlla rate limiting
+          checkRateLimit(ev.id);
         }
       } catch (e) {
         console.error(e);
@@ -46,14 +58,98 @@ const SubmitPage: React.FC = () => {
       }
     };
 
+    // ✅ Genera/recupera deviceId
+    let dId = localStorage.getItem('karaokeDeviceId');
+    if (!dId) {
+      dId = `device_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      localStorage.setItem('karaokeDeviceId', dId);
+    }
+    setDeviceId(dId);
+
     fetchEvent();
+
+    return () => {
+      if (unsubscribeRequests) unsubscribeRequests();
+    };
   }, [eventCode]);
+
+  // ✅ Countdown timer: aggiorna ogni secondo
+  useEffect(() => {
+    if (!lastSubmitTime) return;
+
+    const interval = setInterval(() => {
+      setTick(prev => prev + 1);
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [lastSubmitTime]);
+
+  // ✅ Controlla se il dispositivo ha fatto una richiesta di recente
+  const checkRateLimit = async (eventId: string) => {
+    const dId = localStorage.getItem('karaokeDeviceId');
+    if (!dId) return;
+
+    // ✅ Controlla prima nel localStorage (immediato e offline)
+    const localLastSubmit = localStorage.getItem(`karaokeLastSubmit_${eventId}`);
+    if (localLastSubmit) {
+      setLastSubmitTime(parseInt(localLastSubmit, 10));
+      return;
+    }
+
+    // ✅ Fallback: controlla su Firestore
+    try {
+      const q = query(
+        collection(db, `events/${eventId}/requests`),
+        where('deviceId', '==', dId),
+        orderBy('createdAt', 'desc'),
+        limit(1)
+      );
+
+      const snapshot = await getDocs(q);
+      if (!snapshot.empty) {
+        const lastRequest = snapshot.docs[0].data();
+        const lastTime = lastRequest.createdAt?.toMillis?.() || 0;
+        setLastSubmitTime(lastTime);
+        // Salva nel localStorage per il prossimo controllo veloce
+        localStorage.setItem(`karaokeLastSubmit_${eventId}`, lastTime.toString());
+      }
+    } catch (e) {
+      console.error('Errore verifica rate limit:', e);
+    }
+  };
 
   // ✅ default: se il campo non esiste, consideriamo prenotazioni APERTE
   const acceptingRequests = useMemo(() => {
     const raw = (eventData as any)?.acceptingRequests;
     return raw === false ? false : true;
   }, [eventData]);
+
+  // ✅ Controlla rate limit
+  const { canSubmit, minutesRemaining, errorMessage } = useMemo(() => {
+    const minWaitMinutes = (eventData as any)?.minTimeBetweenRequests ?? 30;
+    const minWaitMs = minWaitMinutes * 60 * 1000;
+
+    if (!lastSubmitTime) {
+      return { canSubmit: true, minutesRemaining: 0, errorMessage: '' };
+    }
+
+    const now = Date.now();
+    const elapsed = now - lastSubmitTime;
+
+    if (elapsed < minWaitMs) {
+      const remainingMs = minWaitMs - elapsed;
+      const minutes = Math.floor(remainingMs / 60000);
+      const seconds = Math.floor((remainingMs % 60000) / 1000);
+      
+      return {
+        canSubmit: false,
+        minutesRemaining: minutes,
+        errorMessage: `Non è possibile prenotarsi prima di ${minutes}:${String(seconds).padStart(2, '0')} minuti`
+      };
+    }
+
+    return { canSubmit: true, minutesRemaining: 0, errorMessage: '' };
+  }, [eventData, lastSubmitTime, tick]); // ✅ Aggiungi tick per aggiornare ogni secondo
 
   // ✅ URL invito: funziona sia in locale che su GitHub Pages
   const inviteUrl = useMemo(() => {
@@ -108,19 +204,32 @@ const SubmitPage: React.FC = () => {
       return;
     }
 
+    // ✅ Controlla rate limit
+    if (!canSubmit) {
+      setRateLimitError(errorMessage);
+      return;
+    }
+
     const nick = nickname.trim();
     const title = songTitle.trim();
     if (!nick || !title) return;
 
     setSubmitting(true);
+    setRateLimitError('');
     try {
+      const now = Date.now();
       const docRef = await addDoc(collection(db, `events/${eventData.id}/requests`), {
         nickname: nick,
         songTitle: title,
         keyShift,
         status: RequestStatus.IN_ATTESA,
         createdAt: serverTimestamp(),
+        deviceId, // ✅ Salva deviceId
       });
+
+      // ✅ Salva timestamp nel localStorage e nello state per rate limit immediato
+      localStorage.setItem(`karaokeLastSubmit_${eventData.id}`, now.toString());
+      setLastSubmitTime(now); // ✅ Update state per bloccare il form
 
       navigate(
         `/sent?eventCode=${eventCode}&nickname=${encodeURIComponent(nick)}&songTitle=${encodeURIComponent(
@@ -152,7 +261,7 @@ const SubmitPage: React.FC = () => {
       </div>
     );
 
-  const formDisabled = submitting || !acceptingRequests;
+  const formDisabled = submitting || !acceptingRequests || !canSubmit;
 
   return (
     <div className="max-w-md mx-auto p-4 sm:p-6 pb-20">
@@ -177,6 +286,19 @@ const SubmitPage: React.FC = () => {
             </div>
             <div className="text-[11px] text-red-200/80 mt-2">
               La regia ha bloccato l'invio di nuove richieste.
+            </div>
+          </div>
+        )}
+
+        {/* ✅ banner rate limit */}
+        {!canSubmit && canSubmit !== undefined && (
+          <div className="mt-5 p-4 rounded-2xl border border-orange-500/30 bg-orange-500/10 text-orange-200">
+            <div className="flex items-center gap-2 font-black uppercase tracking-widest text-xs">
+              <Clock className="w-4 h-4" />
+              Attendi prima di prenotare di nuovo
+            </div>
+            <div className="text-[11px] text-orange-200/80 mt-2">
+              {errorMessage}
             </div>
           </div>
         )}
@@ -256,6 +378,8 @@ const SubmitPage: React.FC = () => {
               'Invio in corso...'
             ) : !acceptingRequests ? (
               'Prenotazioni chiuse'
+            ) : !canSubmit ? (
+              `Attendi ${minutesRemaining}m`
             ) : (
               <>
                 Invia la canzone <CheckCircle className="w-5 h-5" />
