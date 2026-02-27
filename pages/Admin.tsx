@@ -31,6 +31,7 @@ import {
   Unlock,
 } from 'lucide-react';
 import { signOut } from 'firebase/auth';
+import { QRCodeSVG } from 'qrcode.react';
 
 type NewAdminRequest = {
   nickname: string;
@@ -309,9 +310,9 @@ const AdminPage: React.FC = () => {
           {selectedEvent ? (
             <div className="bg-zinc-900/30 border border-gray-800 rounded-3xl overflow-hidden backdrop-blur-sm">
               <div className="p-6 border-b border-gray-800 flex flex-col gap-4">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                  <div className="flex items-center gap-4">
-                    <div className="p-3 bg-pink-500/10 rounded-2xl">
+                <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-6">
+                  <div className="flex items-start gap-4">
+                    <div className="p-3 bg-pink-500/10 rounded-2xl h-fit">
                       <Users className="text-pink-500 w-6 h-6" />
                     </div>
                     <div>
@@ -320,6 +321,19 @@ const AdminPage: React.FC = () => {
                         CODE: <span className="text-pink-400 font-bold">{(selectedEvent as any).eventCode}</span>
                       </div>
                     </div>
+                  </div>
+
+                  {/* QR Code Section */}
+                  <div className="flex flex-col items-center gap-2">
+                    <div className="p-3 bg-white rounded-xl">
+                      <QRCodeSVG
+                        value={`${window.location.origin}${import.meta.env.BASE_URL.replace(/\/$/, '')}/queue?eventCode=${(selectedEvent as any).eventCode}`}
+                        size={120}
+                        level="H"
+                        includeMargin={false}
+                      />
+                    </div>
+                    <span className="text-[10px] text-gray-500 uppercase font-mono tracking-tighter">Serata QR</span>
                   </div>
 
                   <div className="flex flex-wrap items-center gap-2 justify-end">
