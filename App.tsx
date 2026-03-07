@@ -1,15 +1,14 @@
-import React, { useEffect, useState } from 'react';
+import React, { Suspense, lazy, useEffect, useState } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { auth } from './firebase';
-import AdminPage from './pages/Admin';
-import LoginPage from './pages/Login';
-import QueuePage from './pages/Queue';
-import SubmitPage from './pages/Submit';
-import SentPage from './pages/Sent';
-import { Music } from 'lucide-react';
 import { Mic } from "lucide-react";
 
+const AdminPage = lazy(() => import('./pages/Admin'));
+const LoginPage = lazy(() => import('./pages/Login'));
+const QueuePage = lazy(() => import('./pages/Queue'));
+const SubmitPage = lazy(() => import('./pages/Submit'));
+const SentPage = lazy(() => import('./pages/Sent'));
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
@@ -57,15 +56,23 @@ const App: React.FC = () => {
       </header>
 
       <main className="flex-grow pb-20 sm:pb-8">
-        <Routes>
-          <Route path="/admin" element={<ProtectedRoute><AdminPage /></ProtectedRoute>} />
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/queue" element={<QueuePage />} />
-          <Route path="/submit" element={<SubmitPage />} />
-          <Route path="/sent" element={<SentPage />} />
-          <Route path="/" element={<Navigate to="/login" replace />} />
-          <Route path="*" element={<Navigate to="/queue" replace />} />
-        </Routes>
+        <Suspense
+          fallback={
+            <div className="flex items-center justify-center min-h-[50vh] text-cyan-300 font-bold uppercase tracking-widest">
+              Caricamento...
+            </div>
+          }
+        >
+          <Routes>
+            <Route path="/admin" element={<ProtectedRoute><AdminPage /></ProtectedRoute>} />
+            <Route path="/login" element={<LoginPage />} />
+            <Route path="/queue" element={<QueuePage />} />
+            <Route path="/submit" element={<SubmitPage />} />
+            <Route path="/sent" element={<SentPage />} />
+            <Route path="/" element={<Navigate to="/login" replace />} />
+            <Route path="*" element={<Navigate to="/queue" replace />} />
+          </Routes>
+        </Suspense>
       </main>
 
       {/* Footer trasparente */}
