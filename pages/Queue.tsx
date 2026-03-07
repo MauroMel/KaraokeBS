@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
-import { collection, query, where, onSnapshot, orderBy, getDocs } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, orderBy, getDocs, doc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { SongRequest, RequestStatus, KaraokeEvent } from '../types';
 import { QRCodeSVG } from 'qrcode.react';
