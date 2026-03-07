@@ -166,6 +166,12 @@ const AdminPage: React.FC = () => {
   const handleLogout = () => signOut(auth);
 
   const selectedEvent = events.find((e) => e.id === selectedEventId);
+  const baseUrl = import.meta.env.BASE_URL.replace(/\/$/, '');
+
+  const openQueueForEvent = (eventCode: string) => {
+    const queueUrl = `${window.location.origin}${baseUrl}/queue?eventCode=${encodeURIComponent(eventCode)}`;
+    window.open(queueUrl, '_blank', 'noopener,noreferrer');
+  };
 
   // ✅ Prenotazioni attive: nel tuo modello non c’è uno status “chiusa”, quindi le consideriamo tutte
   const activeRequestsCount = useMemo(() => requests.length, [requests]);
@@ -369,9 +375,17 @@ const AdminPage: React.FC = () => {
                       {ev.createdAt?.toDate?.().toLocaleDateString?.() ?? ''}
                     </span>
 
-                    <span className="px-2 py-0.5 bg-gray-800 rounded text-[10px] text-pink-400 font-mono">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        openQueueForEvent((ev as any).eventCode);
+                      }}
+                      className="px-2 py-0.5 bg-gray-800 rounded text-[10px] text-pink-400 font-mono hover:bg-gray-700 transition-colors underline decoration-pink-500/40 underline-offset-2"
+                      title="Apri queue in una nuova scheda"
+                    >
                       #{(ev as any).eventCode}
-                    </span>
+                    </button>
                   </div>
                 </button>
 
@@ -413,7 +427,7 @@ const AdminPage: React.FC = () => {
                   <div className="flex flex-col items-center gap-2">
                     <div className="p-3 bg-white rounded-xl">
                       <QRCodeSVG
-                        value={`${window.location.origin}${import.meta.env.BASE_URL.replace(/\/$/, '')}/queue?eventCode=${(selectedEvent as any).eventCode}`}
+                        value={`${window.location.origin}${import.meta.env.BASE_URL.replace(/\/$/, '')}/submit?eventCode=${(selectedEvent as any).eventCode}`}
                         size={120}
                         level="H"
                         includeMargin={false}
