@@ -26,7 +26,6 @@ import {
   LogOut,
   X,
   Settings,
-  Music,
   Lock,
   Unlock,
 } from 'lucide-react';
@@ -375,17 +374,33 @@ const AdminPage: React.FC = () => {
                       {ev.createdAt?.toDate?.().toLocaleDateString?.() ?? ''}
                     </span>
 
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        openQueueForEvent((ev as any).eventCode);
-                      }}
-                      className="px-2 py-0.5 bg-gray-800 rounded text-[10px] text-pink-400 font-mono hover:bg-gray-700 transition-colors underline decoration-pink-500/40 underline-offset-2"
-                      title="Apri queue in una nuova scheda"
-                    >
-                      #{(ev as any).eventCode}
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          openQueueForEvent((ev as any).eventCode);
+                        }}
+                        className="px-2 py-0.5 bg-gray-800 rounded text-[10px] text-pink-400 font-mono hover:bg-gray-700 transition-colors underline decoration-pink-500/40 underline-offset-2"
+                        title="Apri queue in una nuova scheda"
+                      >
+                        #{(ev as any).eventCode}
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedEventId(ev.id);
+                          setShowAddSongModal(true);
+                        }}
+                        className="w-6 h-6 rounded-md border border-cyan-500/40 bg-cyan-500/10 text-cyan-200 hover:bg-cyan-500/20 text-sm font-black leading-none flex items-center justify-center transition-colors"
+                        title="Inserisci canzone"
+                        aria-label="Inserisci canzone"
+                      >
+                        +
+                      </button>
+                    </div>
                   </div>
                 </button>
 
@@ -473,15 +488,6 @@ const AdminPage: React.FC = () => {
                           <Lock className="w-4 h-4" /> Prenotazioni OFF
                         </>
                       )}
-                    </button>
-
-                    {/* ✅ Inserisci canzone */}
-                    <button
-                      onClick={() => setShowAddSongModal(true)}
-                      className="px-4 py-2 rounded-xl border border-cyan-500/30 bg-cyan-500/10 text-cyan-200 hover:bg-cyan-500/20 text-xs font-black uppercase tracking-widest transition-colors flex items-center gap-2"
-                      title="Inserisci una nuova canzone come regia"
-                    >
-                      <Music className="w-4 h-4" /> Inserisci canzone
                     </button>
 
                     {selectedRequests.size > 0 && (
